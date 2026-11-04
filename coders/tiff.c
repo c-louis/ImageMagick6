@@ -480,6 +480,51 @@ static void ReadProfile(Image *image,const char *name,
   profile=DestroyStringInfo(profile);
 }
 
+static size_t GetIPTCProfileLength(const unsigned char *datum,
+  const size_t length)
+{
+  size_t
+    i,
+    offset;
+
+  /*
+    TIFFTAG_RICHTIFFIPTC is stored as an array of longs, so the IPTC data is
+    padded with zero bytes. Return the length of the IPTC datasets without
+    that padding, or the original length if the data is not plain IPTC.
+  */
+  offset=0;
+  while ((offset+5) <= length)
+  {
+    size_t
+      count;
+
+    if (datum[offset] != 0x1c)
+      break;
+    count=((size_t) datum[offset+3] << 8) | (size_t) datum[offset+4];
+    offset+=5;
+    if ((count & 0x8000) != 0)
+      {
+        size_t
+          extent;
+
+        extent=count & 0x7fff;
+        if ((extent > sizeof(size_t)) || ((offset+extent) > length))
+          return(length);
+        count=0;
+        for (i=0; i < extent; i++)
+          count=(count << 8) | (size_t) datum[offset+i];
+        offset+=extent;
+      }
+    if (count > (length-offset))
+      return(length);
+    offset+=count;
+  }
+  for (i=offset; i < length; i++)
+    if (datum[i] != 0)
+      return(length);
+  return(offset == 0 ? length : offset);
+}
+
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
 #endif
@@ -546,10 +591,12 @@ static void TIFFGetProfiles(TIFF *tiff,Image *image)
         {
           if (TIFFIsByteSwapped(tiff) != 0)
             TIFFSwabArrayOfLong((uint32 *) profile,(tmsize_t) length);
-          ReadProfile(image,"iptc",profile,4L*length);
+          ReadProfile(image,"iptc",profile,(ssize_t) GetIPTCProfileLength(
+            profile,4L*length));
         }
       else
-        ReadProfile(image,"iptc",profile,length);
+        ReadProfile(image,"iptc",profile,(ssize_t) GetIPTCProfileLength(
+          profile,length));
     }
 #endif
 #if defined(TIFFTAG_XMLPACKET)
@@ -3052,9 +3099,10 @@ static void TIFFSetProfiles(TIFF *tiff,Image *image)
           *iptc_profile;
 
         iptc_profile=CloneStringInfo(profile);
-        length=GetStringInfoLength(profile)+4-(GetStringInfoLength(profile) &
-          0x03);
+        length=(GetStringInfoLength(profile)+3) & ~((size_t) 0x03);
         SetStringInfoLength(iptc_profile,length);
+        (void) memset(GetStringInfoDatum(iptc_profile)+
+          GetStringInfoLength(profile),0,length-GetStringInfoLength(profile));
         field=TIFFFieldWithTag(tiff,TIFFTAG_RICHTIFFIPTC);
         if ((field != (const TIFFField *) NULL) &&
             (TIFFFieldDataType(field) == TIFF_LONG))

@@ -43,6 +43,7 @@ TESTS_TESTS = \
 	tests/cli-colorspace.tap \
 	tests/cli-8bim-profile.tap \
 	tests/cli-gif-profile.tap \
+	tests/cli-tiff-iptc.tap \
 	tests/validate-colorspace.tap \
 	tests/validate-compare.tap \
 	tests/validate-composite.tap \
