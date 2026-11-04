@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+#  Copyright 1999 ImageMagick Studio LLC, a non-profit organization
+#  dedicated to making software imaging solutions freely available.
+#
+#  You may not use this file except in compliance with the License.  You may
+#  obtain a copy of the License at
+#
+#    https://imagemagick.org/license/
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+#  Regression test for ReadGIFImage(): the MGK8BIM0000, MGKIPTC0000 and
+#  ICCRGBG1012 application extensions written by WriteGIFImage() must be
+#  read back as named profiles (a NULL name crashed SetImageProfile()).
+#
+. ./common.shi
+. ${srcdir}/tests/common.shi
+echo "1..4"
+
+TMPDIR_GIF="cli-gif-profile_out.d"
+rm -rf "${TMPDIR_GIF}"
+mkdir "${TMPDIR_GIF}" || exit 1
+
+# IPTC record 2:05 (object name) = "test".  Octal escapes for POSIX printf.
+printf '\034\002\005\000\004test' > "${TMPDIR_GIF}/in.iptc"
+# 8BIM resource 0x0406 (JPEG quality) with an empty name and 2-byte payload.
+printf '8BIM\004\006\000\000\000\000\000\002\000\000' > "${TMPDIR_GIF}/in.8bim"
+
+# Test 1: write a GIF carrying both profiles.
+${CONVERT} -size 16x16 xc:white -profile "IPTC:${TMPDIR_GIF}/in.iptc" \
+  -profile "8BIM:${TMPDIR_GIF}/in.8bim" "${TMPDIR_GIF}/out.gif" \
+  && echo "ok" || echo "not ok"
+
+# Test 2: reading it back must not crash and must keep both profile names.
+${IDENTIFY} -format '%[profiles]' "${TMPDIR_GIF}/out.gif" \
+  > "${TMPDIR_GIF}/names.txt" 2>/dev/null && echo "ok" || echo "not ok"
+
+# Test 3: the 8bim profile round-trips byte for byte.
+${CONVERT} "${TMPDIR_GIF}/out.gif" "8BIM:${TMPDIR_GIF}/out.8bim" && \
+  cmp -s "${TMPDIR_GIF}/in.8bim" "${TMPDIR_GIF}/out.8bim" \
+  && echo "ok" || echo "not ok"
+
+# Test 4: the iptc profile round-trips byte for byte.
+${CONVERT} "${TMPDIR_GIF}/out.gif" "IPTC:${TMPDIR_GIF}/out.iptc" && \
+  cmp -s "${TMPDIR_GIF}/in.iptc" "${TMPDIR_GIF}/out.iptc" \
+  && echo "ok" || echo "not ok"
+
+rm -rf "${TMPDIR_GIF}"
+:

@@ -1805,6 +1805,8 @@ static MagickBooleanType SetImageProfileInternal(Image *image,const char *name,
   assert(image->signature == MagickCoreSignature);
   if (IsEventLogging() != MagickFalse)
     (void) LogMagickEvent(TraceEvent,GetMagickModule(),"%s",image->filename);
+  if ((name == (const char *) NULL) || (*name == '\0'))
+    return(MagickFalse);
   if ((image->profiles != (SplayTreeInfo*) NULL) &&
       (GetNumberOfNodesInSplayTree((SplayTreeInfo*) image->profiles) >= GetMaxProfileCount()))
     return(MagickTrue);

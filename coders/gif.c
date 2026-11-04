@@ -1231,6 +1231,7 @@ static Image *ReadGIFImage(const ImageInfo *image_info,ExceptionInfo *exception)
                     profile=BlobToStringInfo(info,(size_t) info_length);
                     if (profile != (StringInfo *) NULL)
                       {
+                        SetStringInfoName(profile,name);
                         if (remaining_profiles == 0)
                           {
                             info=(unsigned char *) RelinquishMagickMemory(info);
